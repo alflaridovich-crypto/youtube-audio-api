@@ -1,45 +1,61 @@
 import express from "express";
-import ytdl from "yt-dlp-exec";
+import ytdl from "ytdl-core";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// простой healthcheck
+// Простейшая проверка, что сервис жив
 app.get("/", (req, res) => {
   res.send("YouTube Audio API is working");
 });
 
-// основной endpoint: /download?url=...
+// Основной эндпоинт: /download?url=...
 app.get("/download", async (req, res) => {
   try {
     const url = req.query.url;
-    if (!url) return res.status(400).send("Missing video URL");
+
+    if (!url) {
+      return res.status(400).send("Missing video URL");
+    }
+
+    const isValid = ytdl.validateURL(url);
+    if (!isValid) {
+      return res.status(400).send("Invalid YouTube URL");
+    }
 
     console.log("Downloading audio from:", url);
 
-    // запускаем yt-dlp как библиотеку
-    const process = ytdl(url, {
-      extractAudio: true,
-      audioFormat: "mp3",
-      audioQuality: 0,
-      output: "-",
+    // Настраиваем заголовки — говорим, что это аудио
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Disposition", 'inline; filename="audio.mp3"');
+
+    // Стримим только аудио-дорожку в ответ
+    const stream = ytdl(url, {
+      filter: "audioonly",
+      quality: "highestaudio"
     });
 
-    // устанавливаем заголовки для mp3
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Content-Disposition", "inline; filename=audio.mp3");
+    stream.pipe(res);
 
-    // прокидываем поток в ответ
-    process.stdout.pipe(res);
-
-    process.stderr.on("data", data => {
-      console.error("yt-dlp error:", data.toString());
+    stream.on("error", (err) => {
+      console.error("ytdl error:", err);
+      if (!res.headersSent) {
+        res.status(500).send("Error downloading audio");
+      } else {
+        res.end();
+      }
     });
 
   } catch (e) {
     console.error(e);
-    res.status(500).send("Error downloading audio");
+    if (!res.headersSent) {
+      res.status(500).send("Server error");
+    } else {
+      res.end();
+    }
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

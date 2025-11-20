@@ -4,7 +4,7 @@ import ytdl from "ytdl-core";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Простейшая проверка, что сервис жив
+// Простой healthcheck — чтобы проверить, что сервис жив
 app.get("/", (req, res) => {
   res.send("YouTube Audio API is working");
 });
@@ -25,11 +25,11 @@ app.get("/download", async (req, res) => {
 
     console.log("Downloading audio from:", url);
 
-    // Настраиваем заголовки — говорим, что это аудио
+    // Заголовки — сообщаем, что будет mp3-аудио
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Content-Disposition", 'inline; filename="audio.mp3"');
 
-    // Стримим только аудио-дорожку в ответ
+    // Стримим только аудио-дорожку
     const stream = ytdl(url, {
       filter: "audioonly",
       quality: "highestaudio"
